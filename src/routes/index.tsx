@@ -75,10 +75,10 @@ function Home() {
           setIsLoading(true);
           const date = new Date().toISOString().split("T")[0];
           addTransactionFn({ data: { token, amount, memo, tags, date } })
+            .then(() => alert("Transaction added"))
             .catch((e) => alert(e))
             .finally(() => {
               setIsLoading(false);
-              alert("Transaction added");
             });
         }}
       >
