@@ -4,7 +4,12 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { createServerFn, useServerFn } from "@tanstack/react-start";
-import { Button, Checkbox, FormControlLabel } from "@mui/material";
+import {
+  Autocomplete,
+  Button,
+  Checkbox,
+  FormControlLabel,
+} from "@mui/material";
 import { Stack, TextField } from "@mui/material";
 import { useState } from "react";
 import { z } from "zod";
@@ -63,6 +68,11 @@ function Home() {
 
   const [isLoading, setIsLoading] = useState(false);
 
+  const [availableTags, setAvailableTags] = useLocalStorage<string[]>(
+    "availableTags",
+    []
+  );
+
   return (
     <Stack gap={2} p={2}>
       <form
@@ -76,6 +86,7 @@ function Home() {
               if (shouldShowAlert) {
                 alert("Transaction added");
               }
+              setAvailableTags([...new Set([...availableTags, ...tags])]);
             })
             .catch((e) => alert(e))
             .finally(() => {
@@ -102,7 +113,23 @@ function Home() {
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
         />
-        <TagsMultiSelect value={tags} onChange={setTags} />
+        <Autocomplete
+          multiple
+          freeSolo
+          options={availableTags}
+          value={tags}
+          onChange={(_, newValue: string[]) => {
+            setTags(newValue);
+          }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Tags"
+              placeholder="Add or select tags"
+            />
+          )}
+        />
+
         <Button type="submit" loading={isLoading}>
           Add
         </Button>
@@ -111,6 +138,9 @@ function Home() {
           label="Show alert"
           onChange={(e) => setShouldShowAlert(e.target.checked)}
         />
+        <Button type="button" onClick={() => setAvailableTags([])} size="small">
+          Clear tags
+        </Button>
       </form>
     </Stack>
   );
