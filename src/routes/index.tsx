@@ -41,6 +41,7 @@ const addTransaction = createServerFn({ method: "POST" })
       memo: data.memo,
       tags: data.tags.join(", "),
     });
+    console.log("Transaction added");
   });
 
 export const Route = createFileRoute("/")({
