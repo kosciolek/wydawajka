@@ -1,21 +1,14 @@
-import * as fs from "node:fs";
 import {
   createFileRoute,
   useLayoutEffect,
   useRouter,
 } from "@tanstack/react-router";
-import { createServerFn } from "@tanstack/react-start";
+import { createServerFn, useServerFn } from "@tanstack/react-start";
 import { Button } from "@mui/material";
 import { Stack, TextField } from "@mui/material";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
-import { JWT } from "google-auth-library";
-import { sheets_v4 } from "@googleapis/sheets";
-import {
-  GOOGLE_PRIVATE_KEY,
-  GOOGLE_SERVICE_ACCOUNT_EMAIL,
-  SPREADSHEET_ID,
-} from "../env";
+import { addTransactionRow } from "../sheets";
 
 const addTransaction = createServerFn({ method: "POST" })
   .validator(
@@ -40,23 +33,11 @@ const addTransaction = createServerFn({ method: "POST" })
     if (data.token !== process.env.TOKEN) {
       throw new Error("Invalid token");
     }
-    const auth = new JWT({
-      email: GOOGLE_SERVICE_ACCOUNT_EMAIL,
-      key: GOOGLE_PRIVATE_KEY,
-      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-    });
-
-    const sheets = new sheets_v4.Sheets({
-      auth,
-    });
-
-    const response = await sheets.spreadsheets.values.append({
-      spreadsheetId: SPREADSHEET_ID,
-      range: "Main!A:D",
-      valueInputOption: "USER_ENTERED",
-      requestBody: {
-        values: [[data.date, data.amount, data.memo, data.tags]],
-      },
+    await addTransactionRow({
+      date: data.date,
+      amount: data.amount,
+      memo: data.memo,
+      tags: data.tags,
     });
   });
 
@@ -66,9 +47,6 @@ export const Route = createFileRoute("/")({
 });
 
 function Home() {
-  const router = useRouter();
-  // const state = Route.useLoaderData();
-
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [tags, setTags] = useState("");
@@ -83,6 +61,8 @@ function Home() {
     localStorage.setItem("token", e.target.value);
   };
 
+  const addTransactionFn = useServerFn(addTransaction);
+
   return (
     <Stack gap={2} p={2}>
       <form
@@ -90,7 +70,7 @@ function Home() {
         onSubmit={(e) => {
           e.preventDefault();
           const date = new Date().toISOString().split("T")[0];
-          addTransaction({ data: { token, amount, memo, tags, date } }).catch(
+          addTransactionFn({ data: { token, amount, memo, tags, date } }).catch(
             (e) => alert(e)
           );
         }}
