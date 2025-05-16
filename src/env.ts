@@ -1,9 +1,3 @@
-export const GOOGLE_SERVICE_ACCOUNT_EMAIL = process.env
-    .GOOGLE_SERVICE_ACCOUNT_EMAIL!;
-if (!GOOGLE_SERVICE_ACCOUNT_EMAIL) {
-    throw new Error("GOOGLE_SERVICE_ACCOUNT_EMAIL is not set");
-}
-
 export const GOOGLE_PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY!;
 if (!GOOGLE_PRIVATE_KEY) {
     throw new Error("GOOGLE_PRIVATE_KEY is not set");
