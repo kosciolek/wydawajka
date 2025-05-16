@@ -6,10 +6,12 @@ After=network.target
 Type=simple
 WorkingDirectory=/root/wydawajka
 EnvironmentFile=/root/wydawajka/.env
-ExecStart=/usr/bin/npm run start
+ExecStart=npm run start
 Restart=always
 RestartSec=5
 User=root
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
