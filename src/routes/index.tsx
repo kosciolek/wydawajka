@@ -104,7 +104,7 @@ function Home() {
         <TextField
           label="Amount"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => setAmount(e.target.value.replace(/\,/g, "."))}
           type="number"
           required
         />
@@ -124,6 +124,7 @@ function Home() {
           renderInput={(params) => (
             <TextField
               {...params}
+              autocapitalize="off"
               label="Tags"
               placeholder="Add or select tags"
             />
