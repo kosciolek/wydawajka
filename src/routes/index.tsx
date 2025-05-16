@@ -124,7 +124,7 @@ function Home() {
           renderInput={(params) => (
             <TextField
               {...params}
-              autocapitalize="off"
+              autoCapitalize="off"
               label="Tags"
               placeholder="Add or select tags"
             />
