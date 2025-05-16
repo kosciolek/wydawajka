@@ -9,6 +9,7 @@ import { Stack, TextField } from "@mui/material";
 import { useState } from "react";
 import { z } from "zod";
 import { addTransactionRow } from "../sheets";
+import TagsMultiSelect from "../tags-select";
 
 const addTransaction = createServerFn({ method: "POST" })
   .validator(
@@ -16,7 +17,7 @@ const addTransaction = createServerFn({ method: "POST" })
       token: string;
       amount: string;
       memo: string;
-      tags: string;
+      tags: string[];
       date: string;
     }) =>
       z
@@ -25,7 +26,7 @@ const addTransaction = createServerFn({ method: "POST" })
           date: z.string(),
           amount: z.string(),
           memo: z.string(),
-          tags: z.string(),
+          tags: z.array(z.string()),
         })
         .parse(data)
   )
@@ -37,7 +38,7 @@ const addTransaction = createServerFn({ method: "POST" })
       date: data.date,
       amount: data.amount,
       memo: data.memo,
-      tags: data.tags,
+      tags: data.tags.join(", "),
     });
   });
 
@@ -49,7 +50,7 @@ export const Route = createFileRoute("/")({
 function Home() {
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
-  const [tags, setTags] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [token, setToken] = useState("");
 
   useLayoutEffect(() => {
@@ -63,16 +64,22 @@ function Home() {
 
   const addTransactionFn = useServerFn(addTransaction);
 
+  const [isLoading, setIsLoading] = useState(false);
+
   return (
     <Stack gap={2} p={2}>
       <form
         style={{ display: "contents" }}
         onSubmit={(e) => {
           e.preventDefault();
+          setIsLoading(true);
           const date = new Date().toISOString().split("T")[0];
-          addTransactionFn({ data: { token, amount, memo, tags, date } }).catch(
-            (e) => alert(e)
-          );
+          addTransactionFn({ data: { token, amount, memo, tags, date } })
+            .catch((e) => alert(e))
+            .finally(() => {
+              setIsLoading(false);
+              alert("Transaction added");
+            });
         }}
       >
         <TextField
@@ -94,12 +101,10 @@ function Home() {
           value={memo}
           onChange={(e) => setMemo(e.target.value)}
         />
-        <TextField
-          label="Tags"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-        />
-        <Button type="submit">Add</Button>
+        <TagsMultiSelect value={tags} onChange={setTags} />
+        <Button type="submit" loading={isLoading}>
+          Add
+        </Button>
       </form>
     </Stack>
   );
