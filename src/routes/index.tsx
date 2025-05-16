@@ -10,6 +10,7 @@ import { useState } from "react";
 import { z } from "zod";
 import { addTransactionRow } from "../sheets";
 import TagsMultiSelect from "../tags-select";
+import { TOKEN } from "../env";
 
 const addTransaction = createServerFn({ method: "POST" })
   .validator(
@@ -31,7 +32,7 @@ const addTransaction = createServerFn({ method: "POST" })
         .parse(data)
   )
   .handler(async ({ data }) => {
-    if (data.token !== process.env.TOKEN) {
+    if (data.token !== TOKEN) {
       throw new Error("Invalid token");
     }
     await addTransactionRow({
