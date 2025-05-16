@@ -6,7 +6,8 @@ After=network.target
 Type=simple
 WorkingDirectory=/root/wydawajka
 EnvironmentFile=/root/wydawajka/.env
-ExecStart=npm run start
+ExecStart=/root/.nvm/nvm-exec npm run start
+Environment="NODE_VERSION=23"
 Restart=always
 RestartSec=5
 User=root
