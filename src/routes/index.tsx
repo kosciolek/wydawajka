@@ -4,13 +4,14 @@ import {
   useRouter,
 } from "@tanstack/react-router";
 import { createServerFn, useServerFn } from "@tanstack/react-start";
-import { Button } from "@mui/material";
+import { Button, Checkbox, FormControlLabel } from "@mui/material";
 import { Stack, TextField } from "@mui/material";
 import { useState } from "react";
 import { z } from "zod";
 import { addTransactionRow } from "../sheets";
 import TagsMultiSelect from "../tags-select";
 import { TOKEN } from "../env";
+import { useLocalStorage } from "usehooks-ts";
 
 const addTransaction = createServerFn({ method: "POST" })
   .validator(
@@ -53,17 +54,11 @@ function Home() {
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [token, setToken] = useState("");
-
-  useLayoutEffect(() => {
-    setToken(localStorage.getItem("token") || "");
-  }, []);
-
-  const onTokenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setToken(e.target.value);
-    localStorage.setItem("token", e.target.value);
-  };
-
+  const [token, setToken] = useLocalStorage("token", "");
+  const [shouldShowAlert, setShouldShowAlert] = useLocalStorage(
+    "shouldShowAlert",
+    true
+  );
   const addTransactionFn = useServerFn(addTransaction);
 
   const [isLoading, setIsLoading] = useState(false);
@@ -77,7 +72,12 @@ function Home() {
           setIsLoading(true);
           const date = new Date().toISOString().split("T")[0];
           addTransactionFn({ data: { token, amount, memo, tags, date } })
-            .then(() => alert("Transaction added"))
+            .then(() => {
+              if (shouldShowAlert) {
+                alert("Transaction added");
+                setShouldShowAlert(false);
+              }
+            })
             .catch((e) => alert(e))
             .finally(() => {
               setIsLoading(false);
@@ -87,7 +87,7 @@ function Home() {
         <TextField
           label="Token"
           value={token}
-          onChange={onTokenChange}
+          onChange={(e) => setToken(e.target.value)}
           required
           type="password"
         />
@@ -107,6 +107,10 @@ function Home() {
         <Button type="submit" loading={isLoading}>
           Add
         </Button>
+        <FormControlLabel
+          control={<Checkbox checked={shouldShowAlert} />}
+          label="Show alert"
+        />
       </form>
     </Stack>
   );

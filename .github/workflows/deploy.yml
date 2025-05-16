@@ -30,11 +30,11 @@ jobs:
           source: ".output/*"
           target: "/root/wydawajka-server"
           
-      # - name: Restart service
-      #   uses: appleboy/ssh-action@v1
-      #   with:
-      #     host: ${{ secrets.HOST }}
-      #     username: ${{ secrets.USERNAME }}
-      #     key: ${{ secrets.SSH_KEY }}
-      #     script: |
-      #       systemctl restart wydawajka
+      - name: Restart service
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
+            systemctl restart wydawajka
