@@ -75,7 +75,6 @@ function Home() {
             .then(() => {
               if (shouldShowAlert) {
                 alert("Transaction added");
-                setShouldShowAlert(false);
               }
             })
             .catch((e) => alert(e))
@@ -110,6 +109,7 @@ function Home() {
         <FormControlLabel
           control={<Checkbox checked={shouldShowAlert} />}
           label="Show alert"
+          onChange={(e) => setShouldShowAlert(e.target.checked)}
         />
       </form>
     </Stack>
