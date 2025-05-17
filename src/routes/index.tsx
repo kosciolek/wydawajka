@@ -88,7 +88,12 @@ function Home() {
               }
               setAvailableTags([...new Set([...availableTags, ...tags])]);
             })
-            .catch((e) => alert(e))
+            .catch((e) => {
+              setAmount("");
+              setMemo("");
+              setTags([]);
+              alert(e);
+            })
             .finally(() => {
               setIsLoading(false);
             });
@@ -131,7 +136,11 @@ function Home() {
           )}
         />
 
-        <Button type="submit" loading={isLoading}>
+        <Button
+          type="submit"
+          loading={isLoading}
+          disabled={amount === "" || tags.length === 0 || token === ""}
+        >
           Add
         </Button>
         <FormControlLabel
