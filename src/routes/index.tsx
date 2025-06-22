@@ -1,15 +1,6 @@
-import {
-  createFileRoute,
-  useLayoutEffect,
-  useRouter,
-} from "@tanstack/react-router";
+import { createFileRoute, useLayoutEffect, useRouter } from "@tanstack/react-router";
 import { createServerFn, useServerFn } from "@tanstack/react-start";
-import {
-  Autocomplete,
-  Button,
-  Checkbox,
-  FormControlLabel,
-} from "@mui/material";
+import { Autocomplete, Button, Checkbox, FormControlLabel } from "@mui/material";
 import { Stack, TextField } from "@mui/material";
 import { useState } from "react";
 import { z } from "zod";
@@ -19,23 +10,16 @@ import { TOKEN } from "../env";
 import { useLocalStorage } from "usehooks-ts";
 
 const addTransaction = createServerFn({ method: "POST" })
-  .validator(
-    (data: {
-      token: string;
-      amount: string;
-      memo: string;
-      tags: string[];
-      date: string;
-    }) =>
-      z
-        .object({
-          token: z.string(),
-          date: z.string(),
-          amount: z.string(),
-          memo: z.string(),
-          tags: z.array(z.string()),
-        })
-        .parse(data)
+  .validator((data: { token: string; amount: string; memo: string; tags: string[]; date: string }) =>
+    z
+      .object({
+        token: z.string(),
+        date: z.string(),
+        amount: z.string(),
+        memo: z.string(),
+        tags: z.array(z.string()),
+      })
+      .parse(data)
   )
   .handler(async ({ data }) => {
     if (data.token !== TOKEN) {
@@ -60,18 +44,12 @@ function Home() {
   const [memo, setMemo] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [token, setToken] = useLocalStorage("token", "");
-  const [shouldShowAlert, setShouldShowAlert] = useLocalStorage(
-    "shouldShowAlert",
-    true
-  );
+  const [shouldShowAlert, setShouldShowAlert] = useLocalStorage("shouldShowAlert", true);
   const addTransactionFn = useServerFn(addTransaction);
 
   const [isLoading, setIsLoading] = useState(false);
 
-  const [availableTags, setAvailableTags] = useLocalStorage<string[]>(
-    "availableTags",
-    []
-  );
+  const [availableTags, setAvailableTags] = useLocalStorage<string[]>("availableTags", []);
 
   return (
     <Stack gap={2} p={2}>
@@ -87,6 +65,9 @@ function Home() {
                 alert("Transaction added");
               }
               setAvailableTags([...new Set([...availableTags, ...tags])]);
+              setAmount("");
+              setMemo("");
+              setTags([]);
             })
             .catch((e) => {
               setAmount("");
@@ -99,13 +80,7 @@ function Home() {
             });
         }}
       >
-        <TextField
-          label="Token"
-          value={token}
-          onChange={(e) => setToken(e.target.value)}
-          required
-          type="password"
-        />
+        <TextField label="Token" value={token} onChange={(e) => setToken(e.target.value)} required type="password" />
         <TextField
           label="Amount"
           value={amount}
@@ -113,11 +88,7 @@ function Home() {
           type="number"
           required
         />
-        <TextField
-          label="Memo"
-          value={memo}
-          onChange={(e) => setMemo(e.target.value)}
-        />
+        <TextField label="Memo" value={memo} onChange={(e) => setMemo(e.target.value)} />
         <Autocomplete
           multiple
           freeSolo
@@ -127,20 +98,11 @@ function Home() {
             setTags(newValue);
           }}
           renderInput={(params) => (
-            <TextField
-              {...params}
-              autoCapitalize="off"
-              label="Tags"
-              placeholder="Add or select tags"
-            />
+            <TextField {...params} autoCapitalize="off" label="Tags" placeholder="Add or select tags" />
           )}
         />
 
-        <Button
-          type="submit"
-          loading={isLoading}
-          disabled={amount === "" || tags.length === 0 || token === ""}
-        >
+        <Button type="submit" loading={isLoading} disabled={amount === "" || tags.length === 0 || token === ""}>
           Add
         </Button>
         <FormControlLabel
