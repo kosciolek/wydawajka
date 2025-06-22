@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vinxi dev",
     "build": "vinxi build",
-    "start": "vinxi start --host $(ip addr show tailscale0 | grep 'inet ' | awk '{print $2}' | cut -d/ -f1)"
+    "start": "vinxi start"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
