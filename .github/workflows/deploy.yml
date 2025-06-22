@@ -32,6 +32,11 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Add SSH known hosts
+        run: |
+          mkdir -p ~/.ssh
+          echo "100.94.227.1 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII0uMX0SCi7y/fggooWpB6JwNwlq2fKrwPjEj2iGr2xC" >> ~/.ssh/known_hosts
+
       - name: Deploy to server
         run: |
           scp -r .output/* ${{ secrets.USERNAME }}@${{ secrets.TS_HOST }}:/root/wydawajka-server
