@@ -33,12 +33,8 @@ jobs:
         run: npm run build
 
       - name: Deploy to server
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          source: ".output/*"
-          target: "/root/wydawajka-server"
+        run: |
+          scp -r .output/* ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/root/wydawajka-server
 
       - name: Restart service
         uses: appleboy/ssh-action@v1
