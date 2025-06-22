@@ -34,12 +34,12 @@ jobs:
 
       - name: Deploy to server
         run: |
-          scp -r .output/* ${{ secrets.USERNAME }}@${{ secrets.HOST }}:/root/wydawajka-server
+          scp -r .output/* ${{ secrets.USERNAME }}@${{ secrets.TS_HOST }}:/root/wydawajka-server
 
       - name: Restart service
         uses: appleboy/ssh-action@v1
         with:
-          host: ${{ secrets.HOST }}
+          host: ${{ secrets.TS_HOST }}
           username: ${{ secrets.USERNAME }}
           script: |
             systemctl restart wydawajka
