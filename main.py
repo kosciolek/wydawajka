@@ -1,5 +1,6 @@
-import calendar
 from typing import Literal
+
+from working_hours import WORKING_HOURS
 
 # ── Configuration ────────────────────────────────────────────────────────────
 USD_PLN = 3.5
@@ -78,13 +79,7 @@ def get_zus_phase(year: int, month: int) -> ZusPhase:
 
 
 def get_working_hours(year: int, month: int) -> int:
-    """Count business days (Mon-Fri) in a month and multiply by 8."""
-    business_days = 0
-    _, days_in_month = calendar.monthrange(year, month)
-    for day in range(1, days_in_month + 1):
-        if calendar.weekday(year, month, day) < 5:  # Mon=0 ... Fri=4
-            business_days += 1
-    return business_days * 8
+    return WORKING_HOURS[(year, month)]
 
 
 def get_zus_social(year: int, phase: ZusPhase) -> float:
