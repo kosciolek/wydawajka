@@ -32,9 +32,9 @@ ZUS_PARAMS: dict[int, dict[str, float]] = {
     2026: {
         "pref_base": 1441.80,   # 30% of 4806 (min wage 2026)
         "full_base": 5652.00,   # 60% of 9420 (est avg wage 2026)
-        "health_base_low": 5284.20,    # ~3% growth
-        "health_base_mid": 8807.06,
-        "health_base_high": 15852.70,
+        "health_base_low": 5537.18,    # 60% of 9228.64 (Q4 2025 avg wage)
+        "health_base_mid": 9228.64,    # 100% of 9228.64
+        "health_base_high": 16611.55,  # 180% of 9228.64
     },
     2027: {
         "pref_base": 1485.05,   # ~3% growth
@@ -89,11 +89,16 @@ def get_zus_social(year: int, phase: ZusPhase) -> float:
     return params["full_base"] * FULL_RATE
 
 
-def get_health_insurance(year: int, annual_revenue: float) -> float:
+def get_health_insurance(year: int, cumulative_revenue: float) -> float:
+    """Health insurance based on cumulative current-year revenue (standard method).
+
+    Each year starts at the low bracket; steps up as cumulative revenue
+    crosses the 60k / 300k thresholds.
+    """
     params = ZUS_PARAMS[year]
-    if annual_revenue <= HEALTH_BRACKET_LOW:
+    if cumulative_revenue <= HEALTH_BRACKET_LOW:
         base = params["health_base_low"]
-    elif annual_revenue <= HEALTH_BRACKET_HIGH:
+    elif cumulative_revenue <= HEALTH_BRACKET_HIGH:
         base = params["health_base_mid"]
     else:
         base = params["health_base_high"]
@@ -112,17 +117,7 @@ def main() -> None:
     start_year, start_month = 2026, 1
     end_year, end_month = 2029, 12
 
-    # Pass 1: compute full-year revenues to determine health insurance brackets
-    # (always use all 12 months, regardless of display range)
-    annual_revenues: dict[int, float] = {}
-    for year in range(start_year, end_year + 1):
-        total = 0.0
-        for month in range(1, 13):
-            hours = get_working_hours(year, month)
-            total += hours * HOURLY_RATE_TOTAL
-        annual_revenues[year] = total
-
-    # Pass 2: print monthly breakdown
+    # Print monthly breakdown
     header = (
         f"{'Month':<10} {'Hours':>5} {'Revenue':>12} {'ZUS Social':>12} "
         f"{'Health Ins':>12} {'Ryczałt':>12} {'Net':>12}"
@@ -150,12 +145,14 @@ def main() -> None:
             # Print yearly subtotal separator
             current_year = year
 
+        cumulative_revenue = 0.0
         for month in range(m_start, m_end + 1):
             hours = get_working_hours(year, month)
             revenue = hours * HOURLY_RATE_TOTAL
+            cumulative_revenue += revenue
             phase = get_zus_phase(year, month)
             zus_social = get_zus_social(year, phase)
-            health = get_health_insurance(year, annual_revenues[year])
+            health = get_health_insurance(year, cumulative_revenue)
             tax = calculate_ryczalt(revenue, zus_social, health)
             net = revenue - zus_social - health - tax
 
