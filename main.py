@@ -109,7 +109,7 @@ def calculate_ryczalt(revenue: float, zus_social: float, health_insurance: float
 
 
 def main() -> None:
-    start_year, start_month = 2026, 2
+    start_year, start_month = 2026, 1
     end_year, end_month = 2029, 12
 
     # Pass 1: compute full-year revenues to determine health insurance brackets
