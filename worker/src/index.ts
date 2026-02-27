@@ -14,13 +14,13 @@ app.use('/create', async (c, next) => {
 })
 
 app.post('/create', async (c) => {
-  const body = await c.req.json<{ uuid: string; text: string; timestamp?: string }>()
+  const body = await c.req.json<{ uuid: string; text: string; timestamp?: number }>()
 
   if (!body.uuid || !body.text) {
     return c.json({ error: 'uuid and text are required' }, 400)
   }
 
-  const timestamp = body.timestamp ?? new Date().toISOString()
+  const timestamp = body.timestamp ?? Math.floor(Date.now() / 1000)
 
   await c.env.DB.prepare(
     'INSERT INTO spendings (uuid, timestamp, text) VALUES (?, ?, ?) ON CONFLICT(uuid) DO UPDATE SET timestamp = excluded.timestamp, text = excluded.text'

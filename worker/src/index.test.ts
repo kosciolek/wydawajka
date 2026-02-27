@@ -17,7 +17,7 @@ async function post(path: string, body: object, token?: string) {
 describe('POST /create', () => {
   beforeEach(async () => {
     await env.DB.exec(
-      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp TEXT NOT NULL, text TEXT NOT NULL)'
+      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, text TEXT NOT NULL) STRICT'
     )
     await env.DB.exec('DELETE FROM spendings')
   })
@@ -53,7 +53,7 @@ describe('POST /create', () => {
   })
 
   it('uses provided timestamp', async () => {
-    const ts = '2026-01-15T10:00:00Z'
+    const ts = 1736942400
     const res = await post('/create', { uuid: 'abc-123', text: '50zł obiad', timestamp: ts }, TOKEN)
     expect(res.status).toBe(200)
 

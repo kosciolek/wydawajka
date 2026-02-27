@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS spendings (
   uuid TEXT PRIMARY KEY,
-  timestamp TEXT NOT NULL,
+  timestamp INTEGER NOT NULL,
   text TEXT NOT NULL
-);
+) STRICT;
