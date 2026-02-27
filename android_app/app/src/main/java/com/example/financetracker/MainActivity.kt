@@ -26,7 +26,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.Image
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
@@ -35,7 +34,7 @@ import com.example.financetracker.model.Expense
 import com.example.financetracker.model.SpendingSummary
 import com.example.financetracker.settings.SettingsRepository
 import com.example.financetracker.settings.SettingsScreen
-import com.example.financetracker.sheets.GoogleSheetsService
+import com.example.financetracker.api.CloudflareWorkerService
 import com.example.financetracker.speech.AndroidSpeechRecognizer
 import com.example.financetracker.speech.SpeechToText
 import kotlinx.coroutines.flow.first
@@ -48,14 +47,14 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var speechToText: SpeechToText
     private lateinit var settingsRepository: SettingsRepository
-    private val sheetsService = GoogleSheetsService()
+    private val workerService = CloudflareWorkerService()
 
     private var appState by mutableStateOf<AppState>(AppState.RequestingPermission)
     private var currentScreen by mutableStateOf<Screen>(Screen.Main)
 
     // Settings state
-    private var spreadsheetId by mutableStateOf("")
-    private var serviceAccountJson by mutableStateOf("")
+    private var workerUrl by mutableStateOf("")
+    private var apiToken by mutableStateOf("")
     private var speechTimeoutSeconds by mutableStateOf(SettingsRepository.DEFAULT_SPEECH_TIMEOUT)
     private var isSavingSettings by mutableStateOf(false)
     private var settingsSaveResult by mutableStateOf<String?>(null)
@@ -94,13 +93,12 @@ class MainActivity : ComponentActivity() {
 
         // Load saved settings
         lifecycleScope.launch {
-            spreadsheetId = settingsRepository.spreadsheetId.first()
-            serviceAccountJson = settingsRepository.serviceAccountJson.first()
+            workerUrl = settingsRepository.workerUrl.first()
+            apiToken = settingsRepository.apiToken.first()
             speechTimeoutSeconds = settingsRepository.speechTimeoutSeconds.first()
 
-            // Configure sheets service if we have credentials
-            if (spreadsheetId.isNotBlank() && serviceAccountJson.isNotBlank()) {
-                sheetsService.configure(serviceAccountJson, spreadsheetId)
+            if (workerUrl.isNotBlank() && apiToken.isNotBlank()) {
+                workerService.configure(workerUrl, apiToken)
             }
         }
 
@@ -128,19 +126,18 @@ class MainActivity : ComponentActivity() {
                                 onSettings = { currentScreen = Screen.Settings },
                                 onStartRecording = { checkPermissionAndStart() },
                                 onManualSubmit = { text -> processText(text) },
-                                isSheetsConfigured = sheetsService.isConfigured(),
-                                spreadsheetId = spreadsheetId,
+                                isWorkerConfigured = workerService.isConfigured(),
                                 spendingSummary = spendingSummary,
                                 spendingSummaryError = spendingSummaryError
                             )
                         }
                         Screen.Settings -> {
                             SettingsScreen(
-                                spreadsheetId = spreadsheetId,
-                                serviceAccountJson = serviceAccountJson,
+                                workerUrl = workerUrl,
+                                apiToken = apiToken,
                                 speechTimeoutSeconds = speechTimeoutSeconds,
-                                onSpreadsheetIdChange = { spreadsheetId = it },
-                                onServiceAccountJsonChange = { serviceAccountJson = it },
+                                onWorkerUrlChange = { workerUrl = it },
+                                onApiTokenChange = { apiToken = it },
                                 onSpeechTimeoutChange = { speechTimeoutSeconds = it },
                                 onSave = { saveSettings() },
                                 onBack = {
@@ -171,10 +168,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun fetchSpendingSummary() {
-        if (!sheetsService.isConfigured()) return
+        if (!workerService.isConfigured()) return
 
         lifecycleScope.launch {
-            val result = sheetsService.fetchSpendingSummary()
+            val result = workerService.fetchSpendingSummary()
             if (result.isSuccess) {
                 spendingSummary = result.getOrNull()
                 spendingSummaryError = null
@@ -190,21 +187,15 @@ class MainActivity : ComponentActivity() {
 
         lifecycleScope.launch {
             try {
-                settingsRepository.setSpreadsheetId(spreadsheetId)
-                settingsRepository.setServiceAccountJson(serviceAccountJson)
+                settingsRepository.setWorkerUrl(workerUrl)
+                settingsRepository.setApiToken(apiToken)
                 settingsRepository.setSpeechTimeoutSeconds(speechTimeoutSeconds)
 
-                val configured = if (spreadsheetId.isNotBlank() && serviceAccountJson.isNotBlank()) {
-                    sheetsService.configure(serviceAccountJson, spreadsheetId)
-                } else {
-                    true // No sheets config, but speech timeout saved
+                if (workerUrl.isNotBlank() && apiToken.isNotBlank()) {
+                    workerService.configure(workerUrl, apiToken)
                 }
 
-                settingsSaveResult = if (configured) {
-                    "Zapisano!"
-                } else {
-                    "Błąd: Sprawdź dane logowania."
-                }
+                settingsSaveResult = "Zapisano!"
             } catch (e: Exception) {
                 settingsSaveResult = "Błąd: ${e.message}"
             } finally {
@@ -247,11 +238,10 @@ class MainActivity : ComponentActivity() {
     private fun processText(text: String) {
         val expense = Expense(datetime = Instant.now(), text = text)
 
-        // Upload to Google Sheets if configured
-        if (sheetsService.isConfigured()) {
+        if (workerService.isConfigured()) {
             appState = AppState.Processing("Uploading...")
             lifecycleScope.launch {
-                val result = sheetsService.appendExpense(expense)
+                val result = workerService.appendExpense(expense)
                 if (result.isSuccess) {
                     appState = AppState.Displaying(expense, uploaded = true)
                 } else {
@@ -271,14 +261,12 @@ class MainActivity : ComponentActivity() {
         appState = currentState.copy(isDeleting = true)
 
         lifecycleScope.launch {
-            // Delete the old expense
-            val deleteResult = sheetsService.deleteExpense(expenseToDelete.id)
+            val deleteResult = workerService.deleteExpense(expenseToDelete.id)
             if (deleteResult.isFailure) {
                 appState = AppState.Error("Nie udało się usunąć: ${deleteResult.exceptionOrNull()?.message}")
                 return@launch
             }
 
-            // Start recording again
             appState = AppState.RequestingPermission
             checkPermissionAndStart()
         }
@@ -292,9 +280,8 @@ class MainActivity : ComponentActivity() {
         appState = currentState.copy(isDeleting = true)
 
         lifecycleScope.launch {
-            val deleteResult = sheetsService.deleteExpense(expenseToDelete.id)
+            val deleteResult = workerService.deleteExpense(expenseToDelete.id)
             if (deleteResult.isSuccess) {
-                // Go back to recording
                 appState = AppState.RequestingPermission
                 checkPermissionAndStart()
             } else {
@@ -343,8 +330,7 @@ fun MainScreen(
     onSettings: () -> Unit,
     onStartRecording: () -> Unit,
     onManualSubmit: (String) -> Unit,
-    isSheetsConfigured: Boolean,
-    spreadsheetId: String,
+    isWorkerConfigured: Boolean,
     spendingSummary: SpendingSummary?,
     spendingSummaryError: String?
 ) {
@@ -382,7 +368,6 @@ fun MainScreen(
                         onDone = onDone,
                         onRepeat = onRepeat,
                         onDelete = onDelete,
-                        spreadsheetId = spreadsheetId,
                         isDeleting = state.isDeleting
                     )
                 }
@@ -419,7 +404,7 @@ fun MainScreen(
             Icon(
                 Icons.Default.Settings,
                 contentDescription = "Settings",
-                tint = if (isSheetsConfigured)
+                tint = if (isWorkerConfigured)
                     MaterialTheme.colorScheme.primary
                 else
                     MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
@@ -601,10 +586,8 @@ fun ResultScreen(
     onDone: () -> Unit,
     onRepeat: () -> Unit,
     onDelete: () -> Unit,
-    spreadsheetId: String,
     isDeleting: Boolean = false
 ) {
-    val context = LocalContext.current
     val formatter = DateTimeFormatter
         .ofPattern("dd MMM yyyy HH:mm")
         .withZone(ZoneId.systemDefault())
@@ -655,21 +638,14 @@ fun ResultScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Upload status with link to open sheet
-        if (uploaded && spreadsheetId.isNotBlank()) {
+        if (uploaded) {
             Card(
-                onClick = {
-                    val intent = Intent(Intent.ACTION_VIEW).apply {
-                        data = android.net.Uri.parse("https://docs.google.com/spreadsheets/d/$spreadsheetId")
-                    }
-                    context.startActivity(intent)
-                },
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             ) {
                 Text(
-                    text = "✓ Przesłano · Otwórz arkusz →",
+                    text = "Przesłano",
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                     fontSize = 14.sp,
                     color = MaterialTheme.colorScheme.onPrimaryContainer

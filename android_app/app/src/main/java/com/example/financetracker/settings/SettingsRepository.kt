@@ -15,33 +15,33 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
 class SettingsRepository(private val context: Context) {
 
     companion object {
-        private val SPREADSHEET_ID = stringPreferencesKey("spreadsheet_id")
-        private val SERVICE_ACCOUNT_JSON = stringPreferencesKey("service_account_json")
+        private val WORKER_URL = stringPreferencesKey("worker_url")
+        private val API_TOKEN = stringPreferencesKey("api_token")
         private val SPEECH_TIMEOUT_SECONDS = intPreferencesKey("speech_timeout_seconds")
         const val DEFAULT_SPEECH_TIMEOUT = 5
     }
 
-    val spreadsheetId: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[SPREADSHEET_ID] ?: ""
+    val workerUrl: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[WORKER_URL] ?: ""
     }
 
-    val serviceAccountJson: Flow<String> = context.dataStore.data.map { prefs ->
-        prefs[SERVICE_ACCOUNT_JSON] ?: ""
+    val apiToken: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[API_TOKEN] ?: ""
     }
 
     val speechTimeoutSeconds: Flow<Int> = context.dataStore.data.map { prefs ->
         prefs[SPEECH_TIMEOUT_SECONDS] ?: DEFAULT_SPEECH_TIMEOUT
     }
 
-    suspend fun setSpreadsheetId(id: String) {
+    suspend fun setWorkerUrl(url: String) {
         context.dataStore.edit { prefs ->
-            prefs[SPREADSHEET_ID] = id
+            prefs[WORKER_URL] = url
         }
     }
 
-    suspend fun setServiceAccountJson(json: String) {
+    suspend fun setApiToken(token: String) {
         context.dataStore.edit { prefs ->
-            prefs[SERVICE_ACCOUNT_JSON] = json
+            prefs[API_TOKEN] = token
         }
     }
 
@@ -52,6 +52,6 @@ class SettingsRepository(private val context: Context) {
     }
 
     fun isConfigured(): Flow<Boolean> = context.dataStore.data.map { prefs ->
-        !prefs[SPREADSHEET_ID].isNullOrBlank() && !prefs[SERVICE_ACCOUNT_JSON].isNullOrBlank()
+        !prefs[WORKER_URL].isNullOrBlank() && !prefs[API_TOKEN].isNullOrBlank()
     }
 }

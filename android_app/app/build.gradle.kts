@@ -38,8 +38,6 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
-            excludes += "/META-INF/INDEX.LIST"
-            excludes += "/META-INF/DEPENDENCIES"
         }
     }
 }
@@ -60,11 +58,6 @@ dependencies {
     // Lifecycle
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-
-    // Google Sheets API
-    implementation("com.google.api-client:google-api-client-android:2.2.0")
-    implementation("com.google.apis:google-api-services-sheets:v4-rev20240423-2.0.0")
-    implementation("com.google.auth:google-auth-library-oauth2-http:1.20.0")
 
     // DataStore for settings persistence
     implementation(libs.androidx.datastore.preferences)

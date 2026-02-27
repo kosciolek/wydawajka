@@ -16,11 +16,11 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    spreadsheetId: String,
-    serviceAccountJson: String,
+    workerUrl: String,
+    apiToken: String,
     speechTimeoutSeconds: Int,
-    onSpreadsheetIdChange: (String) -> Unit,
-    onServiceAccountJsonChange: (String) -> Unit,
+    onWorkerUrlChange: (String) -> Unit,
+    onApiTokenChange: (String) -> Unit,
     onSpeechTimeoutChange: (Int) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit,
@@ -75,56 +75,33 @@ fun SettingsScreen(
             HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
             Text(
-                text = "Google Sheets Integration",
+                text = "Cloudflare Worker",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
 
             Text(
-                text = "To upload expenses to Google Sheets:",
+                text = "Połączenie z backendem:",
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
             )
 
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Column(
-                    modifier = Modifier.padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Text("1. Create a Google Cloud project", fontSize = 12.sp)
-                    Text("2. Enable Google Sheets API", fontSize = 12.sp)
-                    Text("3. Create a Service Account", fontSize = 12.sp)
-                    Text("4. Download the JSON key file", fontSize = 12.sp)
-                    Text("5. Share your spreadsheet with the service account email", fontSize = 12.sp)
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             OutlinedTextField(
-                value = spreadsheetId,
-                onValueChange = onSpreadsheetIdChange,
-                label = { Text("Spreadsheet ID") },
-                placeholder = { Text("e.g., 1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms") },
+                value = workerUrl,
+                onValueChange = onWorkerUrlChange,
+                label = { Text("Worker URL") },
+                placeholder = { Text("https://your-worker.your-subdomain.workers.dev") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
 
-            Text(
-                text = "Find it in your spreadsheet URL: docs.google.com/spreadsheets/d/{ID}/edit",
-                fontSize = 12.sp,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
-
             OutlinedTextField(
-                value = serviceAccountJson,
-                onValueChange = onServiceAccountJsonChange,
-                label = { Text("Service Account JSON") },
-                placeholder = { Text("Paste the entire JSON key file content here") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                maxLines = 15
+                value = apiToken,
+                onValueChange = onApiTokenChange,
+                label = { Text("API Token") },
+                placeholder = { Text("Bearer token for authentication") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -132,7 +109,7 @@ fun SettingsScreen(
             Button(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !isSaving && spreadsheetId.isNotBlank() && serviceAccountJson.isNotBlank()
+                enabled = !isSaving && workerUrl.isNotBlank() && apiToken.isNotBlank()
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(
