@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "finances",
+  "name": "wydawajka",
   "main": "src/index.ts",
   "compatibility_date": "2026-02-27",
   "d1_databases": [
