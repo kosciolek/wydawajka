@@ -1,5 +1,5 @@
 {
-  "name": "worker2",
+  "name": "wydawajka",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev --local",

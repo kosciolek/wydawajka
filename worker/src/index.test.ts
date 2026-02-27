@@ -22,7 +22,7 @@ async function post(path: string, body: object, token?: string) {
 describe('POST /create', () => {
   beforeEach(async () => {
     await env.DB.exec(
-      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp TEXT NOT NULL, text TEXT NOT NULL)'
+      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, text TEXT NOT NULL) STRICT'
     )
     await env.DB.exec('DELETE FROM spendings')
   })
@@ -58,12 +58,12 @@ describe('POST /create', () => {
   })
 
   it('uses provided unix timestamp', async () => {
-    const ts = 1768474800
+    const ts = 1736942400
     const res = await post('/create', { uuid: 'abc-123', text: '50zł obiad', timestamp: ts }, TOKEN)
     expect(res.status).toBe(200)
 
     const row = await env.DB.prepare('SELECT * FROM spendings WHERE uuid = ?').bind('abc-123').first()
-    expect(row!.timestamp).toBe(new Date(ts * 1000).toISOString())
+    expect(row!.timestamp).toBe(ts)
   })
 
   it('rejects non-number timestamp', async () => {
@@ -84,7 +84,7 @@ describe('POST /create', () => {
 describe('DELETE /expense/:uuid', () => {
   beforeEach(async () => {
     await env.DB.exec(
-      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp TEXT NOT NULL, text TEXT NOT NULL)'
+      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, text TEXT NOT NULL) STRICT'
     )
     await env.DB.exec('DELETE FROM spendings')
   })
@@ -114,7 +114,7 @@ describe('DELETE /expense/:uuid', () => {
 describe('GET /summary', () => {
   beforeEach(async () => {
     await env.DB.exec(
-      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp TEXT NOT NULL, text TEXT NOT NULL)'
+      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp INTEGER NOT NULL, text TEXT NOT NULL) STRICT'
     )
     await env.DB.exec('DELETE FROM spendings')
   })
