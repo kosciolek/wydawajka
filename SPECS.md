@@ -20,7 +20,7 @@ Creates or replaces a spending record.
 |-------------|--------|----------|--------------------------------------------------|
 | `uuid`      | string | yes      | UUID identifying the spending                    |
 | `text`      | string | yes      | Voice-recorded spending text (e.g. "23zł fryzjer") |
-| `timestamp` | string | no       | ISO 8601 timestamp, defaults to current time     |
+| `timestamp` | number | no       | Unix epoch in seconds, defaults to current time  |
 
 **Behavior:** If a record with the same `uuid` already exists, it is replaced (upsert).
 
@@ -46,9 +46,9 @@ Returns spending totals for today, last 7 days, and last 30 days. Parses the lea
 ```sql
 CREATE TABLE spendings (
   uuid TEXT PRIMARY KEY,
-  text TEXT NOT NULL,
-  timestamp TEXT NOT NULL
-);
+  timestamp INTEGER NOT NULL,
+  text TEXT NOT NULL
+) STRICT;
 ```
 
 ### Deployment
