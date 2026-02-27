@@ -7,7 +7,13 @@
     {
       "binding": "DB",
       "database_name": "finances",
-      "database_id": "798ae390-abaf-4973-8610-fa03188c1a98"
-    }
-  ]
+      "database_id": "798ae390-abaf-4973-8610-fa03188c1a98",
+    },
+  ],
+  "observability": {
+    "logs": {
+      "enabled": false,
+      "invocation_logs": true,
+    },
+  },
 }
