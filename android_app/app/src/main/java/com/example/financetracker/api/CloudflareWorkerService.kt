@@ -10,7 +10,6 @@ import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 class CloudflareWorkerService {
 
@@ -31,13 +30,14 @@ class CloudflareWorkerService {
     suspend fun appendExpense(expense: Expense): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val url = "${workerUrl!!}/create"
-            val formatter = DateTimeFormatter.ISO_INSTANT
 
             val json = JSONObject().apply {
                 put("uuid", expense.id)
                 put("text", expense.text)
-                put("timestamp", formatter.format(expense.datetime))
+                put("timestamp", expense.datetime.epochSecond)
             }
+
+            Log.d(TAG, "POST $url body=$json")
 
             val conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -49,13 +49,15 @@ class CloudflareWorkerService {
             OutputStreamWriter(conn.outputStream).use { it.write(json.toString()) }
 
             val code = conn.responseCode
-            conn.disconnect()
-
             if (code in 200..299) {
+                conn.disconnect()
                 Log.d(TAG, "Expense uploaded: ${expense.id}")
                 Result.success(Unit)
             } else {
-                Result.failure(RuntimeException("HTTP $code"))
+                val body = (conn.errorStream ?: conn.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
+                conn.disconnect()
+                Log.e(TAG, "Upload failed: HTTP $code: $body")
+                Result.failure(RuntimeException("HTTP $code: $body"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to upload expense", e)
@@ -73,13 +75,14 @@ class CloudflareWorkerService {
             }
 
             val code = conn.responseCode
-            conn.disconnect()
-
             if (code in 200..299) {
+                conn.disconnect()
                 Log.d(TAG, "Expense deleted: $expenseId")
                 Result.success(Unit)
             } else {
-                Result.failure(RuntimeException("HTTP $code"))
+                val body = (conn.errorStream ?: conn.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
+                conn.disconnect()
+                Result.failure(RuntimeException("HTTP $code: $body"))
             }
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete expense", e)
@@ -98,8 +101,9 @@ class CloudflareWorkerService {
 
             val code = conn.responseCode
             if (code !in 200..299) {
+                val errorBody = (conn.errorStream ?: conn.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
                 conn.disconnect()
-                return@withContext Result.failure(RuntimeException("HTTP $code"))
+                return@withContext Result.failure(RuntimeException("HTTP $code: $errorBody"))
             }
 
             val body = conn.inputStream.bufferedReader().use { it.readText() }
