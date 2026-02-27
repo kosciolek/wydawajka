@@ -1,0 +1,25 @@
+android-sdk
+
+# Gradle
+.gradle/
+build/
+**/build/
+
+# Local config
+local.properties
+.envrc
+
+# IDE
+.idea/
+*.iml
+
+# APK files
+*.apk
+*.aab
+
+# Generated files
+*.dex
+*.class
+
+# Logs
+*.log

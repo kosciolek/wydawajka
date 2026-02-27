@@ -3,15 +3,20 @@ import { env, SELF } from 'cloudflare:test'
 import app from './index'
 
 const TOKEN = 'test-token'
+const ENV = { DB: env.DB, API_TOKEN: TOKEN }
 
-async function post(path: string, body: object, token?: string) {
+async function request(method: string, path: string, body?: object, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (token) headers['Authorization'] = `Bearer ${token}`
   return app.request(path, {
-    method: 'POST',
+    method,
     headers,
-    body: JSON.stringify(body),
-  }, { DB: env.DB, API_TOKEN: TOKEN })
+    body: body ? JSON.stringify(body) : undefined,
+  }, ENV)
+}
+
+async function post(path: string, body: object, token?: string) {
+  return request('POST', path, body, token)
 }
 
 describe('POST /create', () => {
@@ -68,5 +73,104 @@ describe('POST /create', () => {
     const rows = await env.DB.prepare('SELECT * FROM spendings WHERE uuid = ?').bind('abc-123').all()
     expect(rows.results.length).toBe(1)
     expect(rows.results[0].text).toBe('30zł fryzjer poprawka')
+  })
+})
+
+describe('DELETE /expense/:uuid', () => {
+  beforeEach(async () => {
+    await env.DB.exec(
+      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp TEXT NOT NULL, text TEXT NOT NULL)'
+    )
+    await env.DB.exec('DELETE FROM spendings')
+  })
+
+  it('rejects requests without auth', async () => {
+    const res = await request('DELETE', '/expense/abc-123')
+    expect(res.status).toBe(401)
+  })
+
+  it('deletes an existing spending', async () => {
+    await post('/create', { uuid: 'abc-123', text: '23zł fryzjer' }, TOKEN)
+    const res = await request('DELETE', '/expense/abc-123', undefined, TOKEN)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+
+    const row = await env.DB.prepare('SELECT * FROM spendings WHERE uuid = ?').bind('abc-123').first()
+    expect(row).toBeNull()
+  })
+
+  it('returns ok even for non-existent uuid', async () => {
+    const res = await request('DELETE', '/expense/non-existent', undefined, TOKEN)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ ok: true })
+  })
+})
+
+describe('GET /summary', () => {
+  beforeEach(async () => {
+    await env.DB.exec(
+      'CREATE TABLE IF NOT EXISTS spendings (uuid TEXT PRIMARY KEY, timestamp TEXT NOT NULL, text TEXT NOT NULL)'
+    )
+    await env.DB.exec('DELETE FROM spendings')
+  })
+
+  it('rejects requests without auth', async () => {
+    const res = await request('GET', '/summary')
+    expect(res.status).toBe(401)
+  })
+
+  it('returns zeros when no spendings exist', async () => {
+    const res = await request('GET', '/summary', undefined, TOKEN)
+    expect(res.status).toBe(200)
+    expect(await res.json()).toEqual({ today: 0, last7Days: 0, last30Days: 0 })
+  })
+
+  it('sums spendings by time range', async () => {
+    const now = new Date()
+    const todayTs = now.toISOString()
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
+    const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString()
+
+    await post('/create', { uuid: '1', text: '10 zł kawa', timestamp: todayTs }, TOKEN)
+    await post('/create', { uuid: '2', text: '20 zł obiad', timestamp: threeDaysAgo }, TOKEN)
+    await post('/create', { uuid: '3', text: '50 zł zakupy', timestamp: tenDaysAgo }, TOKEN)
+
+    const res = await request('GET', '/summary', undefined, TOKEN)
+    expect(res.status).toBe(200)
+    const data = await res.json() as { today: number; last7Days: number; last30Days: number }
+    expect(data.today).toBe(10)
+    expect(data.last7Days).toBe(30)
+    expect(data.last30Days).toBe(80)
+  })
+
+  it('parses amounts with decimals', async () => {
+    const now = new Date().toISOString()
+    await post('/create', { uuid: '1', text: '12.50 zł kawa', timestamp: now }, TOKEN)
+    await post('/create', { uuid: '2', text: '7,99 zł herbata', timestamp: now }, TOKEN)
+
+    const res = await request('GET', '/summary', undefined, TOKEN)
+    const data = await res.json() as { today: number; last7Days: number; last30Days: number }
+    expect(data.today).toBeCloseTo(20.49)
+  })
+
+  it('ignores spendings older than 30 days', async () => {
+    const oldTs = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString()
+    await post('/create', { uuid: '1', text: '100 zł stare', timestamp: oldTs }, TOKEN)
+
+    const res = await request('GET', '/summary', undefined, TOKEN)
+    const data = await res.json() as { today: number; last7Days: number; last30Days: number }
+    expect(data.today).toBe(0)
+    expect(data.last7Days).toBe(0)
+    expect(data.last30Days).toBe(0)
+  })
+
+  it('ignores spendings without a leading number', async () => {
+    const now = new Date().toISOString()
+    await post('/create', { uuid: '1', text: 'no amount here', timestamp: now }, TOKEN)
+    await post('/create', { uuid: '2', text: '15 zł z liczbą', timestamp: now }, TOKEN)
+
+    const res = await request('GET', '/summary', undefined, TOKEN)
+    const data = await res.json() as { today: number; last7Days: number; last30Days: number }
+    expect(data.today).toBe(15)
   })
 })
