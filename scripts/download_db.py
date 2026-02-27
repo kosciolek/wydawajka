@@ -3,7 +3,7 @@ import json
 import subprocess
 
 result = subprocess.run(
-    ["npx", "wrangler", "d1", "execute", "finances", "--command", "SELECT * FROM spendings", "--json", "--remote"],
+    ["npx", "wrangler", "d1", "execute", "finances", "--command", "SELECT * FROM spendings ORDER BY timestamp ASC", "--json", "--remote"],
     capture_output=True, text=True, check=True,
     cwd="../worker",
 )
