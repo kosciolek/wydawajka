@@ -123,6 +123,7 @@ class MainActivity : ComponentActivity() {
                                 onRetry = { checkPermissionAndStart() },
                                 onRepeat = { repeatExpense() },
                                 onDelete = { deleteExpense() },
+                                onRetryUpload = { expense -> retryUpload(expense) },
                                 onSettings = { currentScreen = Screen.Settings },
                                 onStartRecording = { checkPermissionAndStart() },
                                 onManualSubmit = { text -> processText(text) },
@@ -154,12 +155,23 @@ class MainActivity : ComponentActivity() {
         }
 
         // Check if launched from dictation shortcut
-        val isDictationMode = intent?.component?.shortClassName == ".DictateShortcut"
-        if (isDictationMode) {
+        if (isDictationIntent(intent)) {
             checkPermissionAndStart()
         } else {
             appState = AppState.Idle
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if (isDictationIntent(intent)) {
+            currentScreen = Screen.Main
+            checkPermissionAndStart()
+        }
+    }
+
+    private fun isDictationIntent(intent: Intent?): Boolean {
+        return intent?.component?.shortClassName == ".DictateShortcut"
     }
 
     override fun onResume() {
@@ -236,20 +248,41 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun processText(text: String) {
+        if (!text.matches(Regex("^\\d.*"))) {
+            appState = AppState.Error("Wydatek musi zaczynać się od kwoty, np. \"23 zł fryzjer\"")
+            return
+        }
+
         val expense = Expense(datetime = Instant.now(), text = text)
 
-        if (workerService.isConfigured()) {
-            appState = AppState.Processing("Uploading...")
-            lifecycleScope.launch {
-                val result = workerService.appendExpense(expense)
-                if (result.isSuccess) {
-                    appState = AppState.Displaying(expense, uploaded = true)
-                } else {
-                    appState = AppState.Displaying(expense, uploaded = false, uploadError = result.exceptionOrNull()?.message)
-                }
+        appState = AppState.Processing("Uploading...")
+        lifecycleScope.launch {
+            if (!workerService.isConfigured()) {
+                appState = AppState.UploadFailed(expense, "Worker nie skonfigurowany — ustaw URL i token w ustawieniach")
+                return@launch
             }
-        } else {
-            appState = AppState.Displaying(expense, uploaded = false)
+            val result = workerService.appendExpense(expense)
+            if (result.isSuccess) {
+                appState = AppState.Displaying(expense)
+            } else {
+                appState = AppState.UploadFailed(expense, result.exceptionOrNull()?.message ?: "Nieznany błąd")
+            }
+        }
+    }
+
+    private fun retryUpload(expense: Expense) {
+        appState = AppState.Processing("Uploading...")
+        lifecycleScope.launch {
+            if (!workerService.isConfigured()) {
+                appState = AppState.UploadFailed(expense, "Worker nie skonfigurowany — ustaw URL i token w ustawieniach")
+                return@launch
+            }
+            val result = workerService.appendExpense(expense)
+            if (result.isSuccess) {
+                appState = AppState.Displaying(expense)
+            } else {
+                appState = AppState.UploadFailed(expense, result.exceptionOrNull()?.message ?: "Nieznany błąd")
+            }
         }
     }
 
@@ -312,10 +345,9 @@ sealed class AppState {
     data class Processing(val message: String = "Processing...") : AppState()
     data class Displaying(
         val expense: Expense,
-        val uploaded: Boolean = false,
-        val uploadError: String? = null,
         val isDeleting: Boolean = false
     ) : AppState()
+    data class UploadFailed(val expense: Expense, val error: String) : AppState()
     data class Error(val message: String) : AppState()
 }
 
@@ -327,6 +359,7 @@ fun MainScreen(
     onRetry: () -> Unit,
     onRepeat: () -> Unit,
     onDelete: () -> Unit,
+    onRetryUpload: (Expense) -> Unit,
     onSettings: () -> Unit,
     onStartRecording: () -> Unit,
     onManualSubmit: (String) -> Unit,
@@ -363,12 +396,18 @@ fun MainScreen(
                 is AppState.Displaying -> {
                     ResultScreen(
                         expense = state.expense,
-                        uploaded = state.uploaded,
-                        uploadError = state.uploadError,
                         onDone = onDone,
                         onRepeat = onRepeat,
                         onDelete = onDelete,
                         isDeleting = state.isDeleting
+                    )
+                }
+                is AppState.UploadFailed -> {
+                    UploadFailedScreen(
+                        expense = state.expense,
+                        error = state.error,
+                        onRetry = { onRetryUpload(state.expense) },
+                        onDone = onDone
                     )
                 }
                 is AppState.Error -> {
@@ -581,8 +620,6 @@ fun ProcessingScreen(message: String = "Processing...") {
 @Composable
 fun ResultScreen(
     expense: Expense,
-    uploaded: Boolean,
-    uploadError: String?,
     onDone: () -> Unit,
     onRepeat: () -> Unit,
     onDelete: () -> Unit,
@@ -592,12 +629,7 @@ fun ResultScreen(
         .ofPattern("dd MMM yyyy HH:mm")
         .withZone(ZoneId.systemDefault())
 
-    val crabMessage = when {
-        isDeleting -> "Usuwam..."
-        uploaded -> "Zapisane!"
-        uploadError != null -> "Zapisałem, ale upload nie poszedł..."
-        else -> "Mam!"
-    }
+    val crabMessage = if (isDeleting) "Usuwam..." else "Zapisane!"
 
     Column(
         modifier = Modifier
@@ -638,34 +670,6 @@ fun ResultScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (uploaded) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Text(
-                    text = "Przesłano",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-        } else if (uploadError != null) {
-            Card(
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer
-                )
-            ) {
-                Text(
-                    text = "Upload nie powiódł się: $uploadError",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onErrorContainer
-                )
-            }
-        }
-
         Spacer(modifier = Modifier.height(24.dp))
 
         // Action buttons
@@ -675,7 +679,7 @@ fun ResultScreen(
         ) {
             OutlinedButton(
                 onClick = onDelete,
-                enabled = uploaded && !isDeleting,
+                enabled = !isDeleting,
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Usuń")
@@ -683,7 +687,7 @@ fun ResultScreen(
 
             OutlinedButton(
                 onClick = onRepeat,
-                enabled = uploaded && !isDeleting,
+                enabled = !isDeleting,
                 modifier = Modifier.weight(1f)
             ) {
                 Text("Powtórz")
@@ -698,6 +702,79 @@ fun ResultScreen(
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Nagraj kolejny", fontSize = 18.sp)
+        }
+    }
+}
+
+@Composable
+fun UploadFailedScreen(
+    expense: Expense,
+    error: String,
+    onRetry: () -> Unit,
+    onDone: () -> Unit
+) {
+    val formatter = DateTimeFormatter
+        .ofPattern("dd MMM yyyy HH:mm")
+        .withZone(ZoneId.systemDefault())
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CrabAssistant(message = "Nie udało się przesłać...")
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = formatter.format(expense.datetime),
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "\"${expense.text}\"",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
+            color = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Card(
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.errorContainer
+            )
+        ) {
+            Text(
+                text = error,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onErrorContainer
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onRetry,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Spróbuj ponownie", fontSize = 18.sp)
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        OutlinedButton(
+            onClick = onDone,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Nagraj kolejny")
         }
     }
 }

@@ -57,13 +57,18 @@ describe('POST /create', () => {
     expect(row!.timestamp).toBeTruthy()
   })
 
-  it('uses provided timestamp', async () => {
-    const ts = '2026-01-15T10:00:00Z'
+  it('uses provided unix timestamp', async () => {
+    const ts = 1768474800
     const res = await post('/create', { uuid: 'abc-123', text: '50zł obiad', timestamp: ts }, TOKEN)
     expect(res.status).toBe(200)
 
     const row = await env.DB.prepare('SELECT * FROM spendings WHERE uuid = ?').bind('abc-123').first()
-    expect(row!.timestamp).toBe(ts)
+    expect(row!.timestamp).toBe(new Date(ts * 1000).toISOString())
+  })
+
+  it('rejects non-number timestamp', async () => {
+    const res = await post('/create', { uuid: 'abc-789', text: '50zł obiad', timestamp: 'not-a-date' as any }, TOKEN)
+    expect(res.status).toBe(400)
   })
 
   it('replaces existing spending with same id', async () => {
@@ -126,12 +131,11 @@ describe('GET /summary', () => {
   })
 
   it('sums spendings by time range', async () => {
-    const now = new Date()
-    const todayTs = now.toISOString()
-    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
-    const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString()
+    const now = Math.floor(Date.now() / 1000)
+    const threeDaysAgo = now - 3 * 24 * 60 * 60
+    const tenDaysAgo = now - 10 * 24 * 60 * 60
 
-    await post('/create', { uuid: '1', text: '10 zł kawa', timestamp: todayTs }, TOKEN)
+    await post('/create', { uuid: '1', text: '10 zł kawa', timestamp: now }, TOKEN)
     await post('/create', { uuid: '2', text: '20 zł obiad', timestamp: threeDaysAgo }, TOKEN)
     await post('/create', { uuid: '3', text: '50 zł zakupy', timestamp: tenDaysAgo }, TOKEN)
 
@@ -144,7 +148,7 @@ describe('GET /summary', () => {
   })
 
   it('parses amounts with decimals', async () => {
-    const now = new Date().toISOString()
+    const now = Math.floor(Date.now() / 1000)
     await post('/create', { uuid: '1', text: '12.50 zł kawa', timestamp: now }, TOKEN)
     await post('/create', { uuid: '2', text: '7,99 zł herbata', timestamp: now }, TOKEN)
 
@@ -154,7 +158,7 @@ describe('GET /summary', () => {
   })
 
   it('ignores spendings older than 30 days', async () => {
-    const oldTs = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString()
+    const oldTs = Math.floor(Date.now() / 1000) - 31 * 24 * 60 * 60
     await post('/create', { uuid: '1', text: '100 zł stare', timestamp: oldTs }, TOKEN)
 
     const res = await request('GET', '/summary', undefined, TOKEN)
@@ -165,7 +169,7 @@ describe('GET /summary', () => {
   })
 
   it('ignores spendings without a leading number', async () => {
-    const now = new Date().toISOString()
+    const now = Math.floor(Date.now() / 1000)
     await post('/create', { uuid: '1', text: 'no amount here', timestamp: now }, TOKEN)
     await post('/create', { uuid: '2', text: '15 zł z liczbą', timestamp: now }, TOKEN)
 
