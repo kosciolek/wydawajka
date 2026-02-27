@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java -version:*)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(curl:*)",
+      "Bash(./gradlew assembleDebug:*)"
+    ]
+  }
+}

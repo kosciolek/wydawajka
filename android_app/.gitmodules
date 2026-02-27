@@ -1,0 +1,6 @@
+[submodule "java-llama-cpp"]
+	path = java-llama-cpp
+	url = https://github.com/kherud/java-llama.cpp.git
+[submodule "llama.cpp"]
+	path = llama.cpp
+	url = https://github.com/ggerganov/llama.cpp.git
